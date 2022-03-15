@@ -21,7 +21,7 @@ class BatterySOC(IntEnum):
     MEDIUM = 2
     HIGH   = 3
 
-class FalconInterface:
+class Interface:
 
     # Tx Data
 
