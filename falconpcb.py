@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from enum import IntEnum
 from threading import Thread
 import time
@@ -23,28 +22,29 @@ class BatterySOC(IntEnum):
 
 class Interface:
 
-    # Tx Data
-
-    ledIdleMode_front = LEDIdleMode.SOLID
-    ledIdleMode_rear  = LEDIdleMode.SOLID
-    ledIdleMode_side  = LEDIdleMode.SOLID
-
-    alertZone = AlertZone.NONE
-
-    # Rx Data
-
-    batterySOC = BatterySOC.ERROR
-    status_charging = False
-    status_error    = False
-
-    # Thread flags
-
-    commsThreadRunning = False
-    txDataNew = False
-
     def __init__(self):
+
+        # Tx Data
+
         self.ledIdleVal_front       = 0
         self.ledIdleVal_rearAndSide = 0
+
+        self.ledIdleMode_front = LEDIdleMode.SOLID
+        self.ledIdleMode_rear  = LEDIdleMode.SOLID
+        self.ledIdleMode_side  = LEDIdleMode.SOLID
+
+        self.alertZone = AlertZone.NONE
+
+        # Rx Data
+
+        self.batterySOC = BatterySOC.ERROR
+        self.status_charging = False
+        self.status_error    = False
+
+        # Thread flags
+
+        self.commsThreadRunning = False
+        self.txDataNew = False
 
     def _commsThread(self):
         self.commsThreadRunning = True
@@ -54,19 +54,22 @@ class Interface:
 
         while self.commsThreadRunning:
             startTime = time.time()
-            while((time.time() < (startTime + 10.0)) and self.txDataNew == False):
+            while((time.time() < (startTime + 1.0)) and self.txDataNew == False):
                 pass
 
             ledIdleModeByte = self.ledIdleMode_front | (self.ledIdleMode_rear << 2) | (self.ledIdleMode_side << 4)
-            txData = [self.ledIdleVal_front, self.ledIdleVal_rearAndSide, ledIdleModeByte, self.alertZone.val, 0, 0]
+            txData = [self.ledIdleVal_front, self.ledIdleVal_rearAndSide, ledIdleModeByte, self.alertZone.value, 0, 0]
 
-            print("\nSent data: ")
-            print(txData)
+            if self.txDataNew:
+                print("\nSent data:")
+                print(txData)
 
             rxData = self.spi.xfer2(txData, 100000)
 
-            print("\nRecieved data: ")
-            print(rxData)
+            if self.txDataNew:
+                print("\nRecieved data:")
+                print(rxData)
+                print("")
 
             self.txDataNew = False
 
@@ -76,6 +79,16 @@ class Interface:
         Thread(target=self._commsThread).start()
 
     def stopComms(self):
+        self.ledIdleVal_front       = 0
+        self.ledIdleVal_rearAndSide = 0
+        self.ledIdleMode_front      = LEDIdleMode.SOLID
+        self.ledIdleMode_rear       = LEDIdleMode.SOLID
+        self.ledIdleMode_side       = LEDIdleMode.SOLID
+        self.alertZone              = AlertZone.NONE
+
+        self.txDataNew = True
+        time.sleep(0.5)
+
         self.commsThreadRunning = False
 
     def setLEDIdleVal(self, front, rearAndSide):
@@ -91,6 +104,11 @@ class Interface:
 
     def setAlertZone(self, zone):
         self.alertZone = zone
+        self.txDataNew = True
+
+        time.sleep(0.2)
+
+        self.alertZone = AlertZone.NONE
         self.txDataNew = True
 
     def getBatterySOC(self):
